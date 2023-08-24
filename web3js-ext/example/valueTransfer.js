@@ -1,12 +1,5 @@
-const { Web3, Web3Context } = require("web3");
-const { Bytes, Transaction } = require("web3");
-const { prepareTransactionForSigning, transactionBuilder, formatTransaction } = require("web3-eth");
-const { ETH_DATA_FORMAT } = require("web3-types");
-const { format } = require("web3-utils");
-const { signTransaction } = require( "web3-eth-accounts");
-const { TypedTransaction } = require("web3-eth-accounts");
-const { KlaytnTx, saveCustomFields, restoreCustomFields } = require( "../dist");
-const { KlaytnTxFactory } = require("../../ethers-ext/dist/src/core");
+const { Web3 } = require("web3");
+const { web3klaytn } = require( "../dist");
 
 
 // const priv = "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80";
@@ -22,66 +15,25 @@ const url = "https://public-en-baobab.klaytn.net";
 async function main() {
   let provider = new Web3.providers.HttpProvider(url);
 
-  // let web3 = new KlaytnWeb3(provider);
-  // var web3 = new Web3(provider);
-  let web3 = new Web3(provider);
+  let web3 = new web3klaytn(provider);
 
-  let balance = await web3.eth.getBalance(addr);
-  console.log(balance);
+  // let balance = await web3.eth.getBalance(addr);
+  // console.log(balance);
 
-  let account = web3.eth.accounts.privateKeyToAccount(priv);
-  console.log(account);
-
-  // extend
-  // web3.eth.accounts.signTransaction = async (transaction: Transaction, privateKey: Bytes | string) => {
-  //   let tx: TypedTransaction;
-  //   if (transaction.type !== undefined) {
-  //     // @ts-ignore
-  //     tx = new KlaytnTx(transaction) as Transaction;
-  //   } else {
-  //     tx = await prepareTransactionForSigning(transaction, web3);
-  //   }
-  //   const privateKeyBytes = format({ format: 'bytes' }, privateKey, ETH_DATA_FORMAT);
-  //   return signTransaction(tx, privateKeyBytes);
-  // }
-
-  web3.eth.accounts.signTransaction = async (transaction, privateKey ) => {
-    let tx;
-    if ( transaction.type == undefined ) {
-      tx = await prepareTransactionForSigning(transaction, web3, privateKey, true, true);
-    } else if ( transaction.type !== undefined && KlaytnTxFactory.has(transaction.type) ) {
-      
-      // const populatedTransaction = await transactionBuilder({ transaction, web3context, privateKey});
-      // const formattedTransaction = formatTransaction( populatedTransaction, ETH_DATA_FORMAT);
-
-      const savedFields = saveCustomFields(transaction);
-      transaction = await prepareTransactionForSigning(transaction, web3, privateKey, true, true);
-      restoreCustomFields(transaction, savedFields);
-
-      // @ts-ignore
-      tx = new KlaytnTx(transaction);
-    } else {
-      throw new Error("Unsupporting type");
-    }
-    const privateKeyBytes = format({ format: 'bytes' }, privateKey, ETH_DATA_FORMAT);
-    return signTransaction(tx, privateKeyBytes);
-  }
-  // end extend
-
-
-
-
+  let sender = web3.eth.accounts.privateKeyToAccount(priv);
+  console.log(sender);
 
   let tx = {
-    from: account.address,
+    from: sender.address,
     to: to,
     // nonce: 319, 
     value: 1e9,
     // gas: 21000,
     // gasPrice: 25e9,
-    // type: 8,
+    type: 8,
   };
-  let signResult = await web3.eth.accounts.signTransaction(tx, account.privateKey);
+
+  let signResult = await web3.eth.accounts.signTransaction(tx, sender.privateKey);
   console.log(signResult);
 
   let sendResult = await web3.eth.sendSignedTransaction(signResult.rawTransaction);
@@ -90,24 +42,5 @@ async function main() {
   let receipt = await web3.eth.getTransactionReceipt(sendResult.transactionHash);
   console.log(receipt);
 }
-
-/*
-async function klaytnSignTransaction(tx: Transaction, priv: string): Promise<SignTransactionResult> {
-  if (!tx.type) {
-    web3.eth.accounts.signTransaction = function(tx, priv) {
-      saveFields()
-      tx = prepareTransactionForSigning(tx, web3);
-      // typeof tx === web3.Transaction || TxTypeValueTransfer, implements web3.TypedTransaction
-      restoreFields()
-
-      return signTransaction(tx, priv);
-    };
-
-    return web3.eth.accounts.signTransaction(tx, priv);
-  } else {
-
-  }
-}
-*/
 
 main();

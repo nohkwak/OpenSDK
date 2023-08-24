@@ -1,1 +1,1 @@
-export { KlaytnTx, saveCustomFields, restoreCustomFields } from "./web3js";
+export { web3klaytn, KlaytnTx, saveCustomFields, restoreCustomFields } from "./web3js";
