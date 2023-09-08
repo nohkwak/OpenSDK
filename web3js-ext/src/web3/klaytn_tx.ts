@@ -5,6 +5,7 @@ import { RLP } from '@ethereumjs/rlp';
 import { Bytes, Numbers, Transaction as TransactionFields, Web3Context } from "web3";
 import _ from "lodash";
 import { prepareTransactionForSigning } from "web3-eth";
+import { Web3RequestManager } from "web3-core";
 
 import { KlaytnTxFactory } from "@klaytn/ethers-ext";
 export interface KlaytnTxData extends TxData {
@@ -43,6 +44,8 @@ export function saveCustomFields(tx: any): any {
   return savedFields;
 }
 
+
+
 // Fill required fields from the context
 export async function prepareTransaction(
   transaction: TransactionFields,
@@ -51,10 +54,29 @@ export async function prepareTransaction(
 {  
   if (KlaytnTxFactory.has(transaction.type)) {
     transaction = _.clone(transaction);
+
     let savedFields = saveCustomFields(transaction);
 
-    let tx = await prepareTransactionForSigning(
-      transaction, context, privateKey, true, true);
+    let tx = await prepareTransactionForSigning(transaction, context, privateKey, true, true);
+
+    // if (!(tx.gasLimit)) {
+    //   if ( !context ) {
+    //     const estimateGasAllowedKeys: string[] = [
+    //       "from", "to", "gasLimit", "gasPrice", "value", "input"];
+    //     const ttx = encodeTxForRPC(estimateGasAllowedKeys, tx);
+
+    //     const result = await context.  .send("klay_estimateGas", [ttx]);
+    //     // For the problem that estimateGas does not exactly match,
+    //     // the code for adding some Gas must be processed in the wallet or Dapp.
+    //     // e.g.
+    //     //   In ethers, no special logic to modify Gas
+    //     //   In Metamask, multiply 1.5 to Gas for ensuring that the estimated gas is sufficient
+    //     //   https://github.com/MetaMask/metamask-extension/blob/9d38e537fca4a61643743f6bf3409f20189eb8bb/ui/ducks/send/helpers.js#L115
+    //     tx.gasLimit = Math.ceil(result * 2.5);
+    //   } else {
+    //     throw new Error("Klaytn transaction can only be populated from a Klaytn JSON-RPC server");
+    //   }
+    // }
 
     let txData = { ...tx, ...savedFields };
 
@@ -65,13 +87,33 @@ export async function prepareTransaction(
     txData.from ??= transaction.from;
     txData.chainId ??= tx.common.chainId();
 
+    // if (!(txData.gasLimit)) {
+    //   txData.gasLimit = await estimateKlaytnGas(context.requestManager, txData);
+    // }
+
     let txOptions = (tx as any).txOptions;
+
+    console.log( txData )
+    console.log( txOptions )
 
     return new KlaytnTx(txData, txOptions);
   } else {
-    return await prepareTransactionForSigning(
-      transaction, context, privateKey, true, true);
+    return await prepareTransactionForSigning(transaction, context, privateKey, true, true);
   }
+}
+
+async function estimateKlaytnGas(
+	requestManager: Web3RequestManager,
+	transaction: any
+) {
+  const estimateGasAllowedKeys: string[] = [
+    "from", "to", "gasLimit", "gasPrice", "value", "input"];
+  const ttx = encodeTxForRPC(estimateGasAllowedKeys, transaction);
+
+	return requestManager.send({
+		method: 'klay_estimateGas',
+		params: [ttx],
+	});
 }
 
 // Mimics the LegacyTransaction.
@@ -176,4 +218,30 @@ export class KlaytnTx extends LegacyTransaction {
   public serialize(): Uint8Array {
     return hexToBytes(this.klaytnTxData.txHashRLP());
   }
+}
+
+function encodeTxForRPC(allowedKeys:string[], tx: any): any {
+  // TODO: refactoring like below
+  // https://github.com/ethers-io/ethers.js/blob/master/packages/providers/src.ts/json-rpc-provider.ts#L701
+  // return {
+  //   from: hexlify(tx.from),
+  //   gas: tx.gasLimit? fromnumber(tx.gasLimit) : null;
+  // };
+
+  const ttx: any = {};
+  for (const key in tx) {
+    if (allowedKeys.indexOf(key) != -1) {
+      let value = _.get(tx, key);
+
+      if (value == 0 || value === "0x0000000000000000000000000000000000000000") {
+        value = "0x";
+      // } else if (typeof(value) == "number" || value instanceof BigNumber) {
+      //   // https://github.com/ethers-io/ethers.js/blob/master/packages/providers/src.ts/json-rpc-provider.ts#L701
+      //   ttx[key] = hexValue(value);
+      } else {
+        ttx[key] = value;
+      }
+    }
+  }
+  return ttx;
 }
