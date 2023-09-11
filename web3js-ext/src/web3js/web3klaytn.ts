@@ -50,6 +50,24 @@ export class web3klaytn {
             return signTransaction(tx, privateKeyBytes);
         }
 
+        web3.eth.sendSignedTransaction =async (signedTx: { type: undefined; }) => {
+          if (provider != null) {
+            // eth_sendRawTransaction cannot process Klaytn typed transactions.
+            // const txhash = await provider.send("klay_sendRawTransaction", [signedTx]);
+            const txhash = await provider.sendAsync({
+              method: "klay_sendRawTransaction",
+              params: ['signedTx'],
+              jsonrpc: "2.0",
+              id: new Date().getTime()
+            });
+            console.log( txhash );
+
+            return await web3.eth.getTransaction(txhash);
+          } else {
+            throw new Error("Klaytn typed transaction can only be broadcasted to a Klaytn JSON-RPC server");
+          }
+        }
+
         return web3; 
     }
 

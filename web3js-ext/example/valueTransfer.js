@@ -17,9 +17,6 @@ async function main() {
 
   let web3 = new web3klaytn(provider);
 
-  // let balance = await web3.eth.getBalance(addr);
-  // console.log(balance);
-
   let sender = web3.eth.accounts.privateKeyToAccount(priv);
   console.log(sender);
 
