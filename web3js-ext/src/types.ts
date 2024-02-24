@@ -16,7 +16,9 @@ import {
   sign,
   signTransaction,
   TxData,
-  TypedTransaction,
+  Transaction as LegacyTransaction,
+  AccessListEIP2930Transaction,
+  FeeMarketEIP1559Transaction,
   Wallet,
   Web3Account,
 } from "web3-eth-accounts";
@@ -27,7 +29,7 @@ import { Personal } from "web3-eth-personal";
 import { Net } from "web3-net";
 import { KeyStore, Bytes, Transaction } from "web3-types";
 
-import { KlaytnTx } from "./klaytn_tx";
+import { KlaytnTypedTransaction } from "./accounts/klaytn_tx";
 
 // Type analogous to web3-eth-accounts/src/types.ts:Web3Account
 // Designed for the "account object" returned by
@@ -99,9 +101,9 @@ export interface KlaytnAccountsInterface {
 		sign: typeof sign;
 		recover: typeof recover;
 		encrypt: typeof encrypt;
-		wallet: Wallet;
 
 		// Klaytn: modified methods
+		wallet: Wallet<KlaytnWeb3Account>;
 		create: () => KlaytnWeb3Account;
 		privateKeyToAccount: (privateKey: Uint8Array | string) => KlaytnWeb3Account;
 		decrypt: (
@@ -119,6 +121,11 @@ export interface KlaytnAccountsInterface {
 			transaction: KlaytnTransaction | string,
 			privateKey: Bytes,
 		) => ReturnType<typeof signTransaction>;
+		decryptList: (
+			keystore: string,
+			password: string,
+			options?: Record<string, unknown>,
+		) => Promise<KlaytnWeb3Account[]>;
 }
 
 // The plain Transaction object supplied by the users.
@@ -148,6 +155,8 @@ export interface KlaytnTxData extends TxData {
 
 // The child classes of BaseTransaction.
 // Used inside signTransaction() and signTransactionAsFeePayer()
-export type KlaytnTypedTransaction =
-	| TypedTransaction // Type 0 (LegacyTransaction), Type 1, Type 2
-	| KlaytnTx; // Klaytn TxTypes
+export type TypedTransaction =
+  | LegacyTransaction // type 0
+  | AccessListEIP2930Transaction // type 1
+  | FeeMarketEIP1559Transaction // type 2
+  | KlaytnTypedTransaction; // Klaytn TxTypes
